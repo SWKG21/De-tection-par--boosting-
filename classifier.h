@@ -12,18 +12,20 @@ class Classifier {
         Classifier(Instances* train_instances);
         ~Classifier() {};
 
+        void setFeaturesMpi();
         int getFeature_dimension() const { return feature_dimension_; }
-        void WeakClassifierMpi(double e, int K);
+        void OneWeakClassifier(int i, double error);
+        void AllWeakClassifierMpi(double error);
         void Merge(int rank, int size, vector<double> v1, vector<double> v2);
-        // int PredictLabel(Image* image_to_classify);
-        // int Error(Image* image_to_classify);
+        vector<double> getOmega1() const {return omega1_;}
+        vector<double> getOmega2() const {return omega2_;}
 
     private:
         Instances* train_instances_;
-        vector<double> omega1;
-        vector<double> omega2;
+        vector<double> omega1_;
+        vector<double> omega2_;
         int feature_dimension_;
         //int k_;
 };
 
-#endif CLASSIFIER_H_
+#endif    // END_CLASSIFIER_H_

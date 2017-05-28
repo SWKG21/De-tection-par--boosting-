@@ -11,20 +11,34 @@ using namespace cimg_library;
 Image::Image(string filename){
     const char* file = filename.c_str();
     CImg<unsigned char> image(file); // seulement pour jpg ici, non raw
-    int count = 0;
+    name_ = filename;
+    width_ = image.width();
+    height_ = image.height();
+    
+    //initialise the data of pixels of this image
+    int cpt = 0;
     vector<vector<double> > tmp;
     CImg<unsigned char>::iterator it = image.begin();
     vector<double> line;
     while(it != image.end()) {
         line.push_back(*it / 255.0);
-        count++;
+        cpt++;
         ++it;
-        if (count%112 == 0){
+        if (cpt % width_ == 0){
             tmp.push_back(line);
             line.clear();
         }
     }
+    imageData_ = tmp;
 
+    //initialise the vector of integral and sumColomn. This memorisation is for making the complexity of calculing the integral lower
+    vector<double> line2(width_);
+    for(int i=0; i<height_; ++i){
+        sumColumn_.push_back(line2);
+        integral_.push_back(line2);
+    }
+    
+    //initialise the vector of features and feature's dimension
     int count = 0;
     int n1 = (image.width()-8)/4+1;
     int n2 = (image.height()-8)/4+1;
@@ -35,12 +49,9 @@ Image::Image(string filename){
         }
         count += s;
     }
-
-    name_ = filename;
-    imageData_ = tmp;
-    width_ = image.width();
-    height_ = image.height();
-    features_dimension_ = count;
+    vector<double> v(count, 0.0);
+    feature_dimension_ = count;
+    features_ = v;
 }
 
 
@@ -49,15 +60,35 @@ double Image::valueOf(int x, int y){
 }
 
 
-double Image::sumOf(int x, int y){
-    if (y==0) return valueOf(x, y);
-    return sumOf(x, y-1)+valueOf(x, y);
+double Image::sumOf(int x, int y){//memorisation
+    if(sumColumn_[y][x] == 0.0){
+        if (y==0){
+            sumColumn_[y][x] = valueOf(x,y);
+        }
+        else{
+            sumColumn_[y][x] = sumColumn_[y-1][x] + valueOf(x,y);
+        }
+        return sumColumn_[y][x];
+    }
+    else{
+        return sumColumn_[y][x];
+    } 
 }
 
 
-double Image::integralOf(int x, int y){
-    if (x==0) return sumOf(x, y);
-    return integralOf(x-1, y)+sumOf(x, y);
+double Image::integralOf(int x, int y){//memorisation
+    if(integral_[y][x] == 0.0){
+        if (x==0){
+            integral_[y][x] = sumOf(x,y);
+        }
+        else{
+            integral_[y][x] = integral_[y][x-1] + sumOf(x,y);
+        }
+        return integral_[y][x];
+    }
+    else{
+        return integral_[y][x];
+    }
 }
 
 
@@ -68,8 +99,8 @@ double Image::integral(){
 
 double Image::type1(Rectangle* r){
     int midX = ( r->getEndX() + r->getStartX() ) / 2;      //r->getStartX works too?????
-    return integralOf(r->getEndX(), r->getEndY()) + 2 * integralOf(midX, r->getStartY()) + integralOf(r->startX(), r->getEndY())
-         - integralOf(r->getEndX(), r->getStartY()) - 2 * integralOf(midX, r->getEndY()) - integralOf(r->getStartX(), r->getStartY()); //trop complique???
+    return integralOf(r->getEndX(), r->getEndY()) + 2 * integralOf(midX, r->getStartY()) + integralOf(r->getStartX(), r->getEndY())
+         - integralOf(r->getEndX(), r->getStartY()) - 2 * integralOf(midX, r->getEndY()) - integralOf(r->getStartX(), r->getStartY());
 }
 
 
@@ -97,10 +128,10 @@ double Image::type4(Rectangle* r){
 }
 
 
-vector<double> Image::featuresMpi(){
+//use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+void Image::setFeaturesMpi(){
     //sequentiel
     // vector<double> f;
-
     // for(int i=0; i<27; ++i){
     //     for(int j=0; j<22; ++j){
     //         //size fixed with width = 8+4i, height = 8+4j
@@ -123,12 +154,11 @@ vector<double> Image::featuresMpi(){
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Status status;
-
     vector<double> f;
 
     // //when #machine less than 27, use i to distribute the work.
 
-    // //local calcul of vector of carac
+    // //local calcul of vector of feature
     // for(int i=rank; i<27; i+=size;){
     //     for(int j=0; j<22; ++j){
     //         //size fixed with width = 8+4i, height = 8+4j
@@ -136,7 +166,7 @@ vector<double> Image::featuresMpi(){
     //             for(int n=0; n<22-j; ++n){
     //                 //position fixed with (4*m, 4*n)
     //                 Rectangle* r = new Rectangle(4*m, 4*n, 8+4*i+4*m, 8+4*j+4*n);
-    //                 //4 types of carac for every rectangle 
+    //                 //4 types of feature for every rectangle 
     //                 f.push_back(type1(r));
     //                 f.push_back(type2(r));
     //                 f.push_back(type3(r));
@@ -147,20 +177,20 @@ vector<double> Image::featuresMpi(){
     //     }
     // }
 
-    // //every machine except root send vector of carac then root receive their vectors. use Send and Recv bloquant.
+    // //every machine except root send vector of feature then root receive their vectors. use Send and Recv bloquant.
     // if (rank != 0){
     //     MPI_Send(f, f.size(), MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
     // }
     // else{
     //     for(int r=1; r<size; ++r){
-    //         //root should count the number of carac for every machine
+    //         //root should count the number of feature for every machine
     //         int count = 0;
     //         for(int i=r; i<27; i+=size){
     //             for(int j=0; j<22; ++j){
     //                 count += 4 * (27-i) * (22-j);
     //             }
     //         }
-    //         //root receive vector of carac of every machine
+    //         //root receive vector of feature of every machine
     //         vector<double> recv;
     //         MPI_Recv(recv, count, MPI_DOUBLE, r, 442, MPI_COMM_WORLD, &status);
     //         f.insert(f.end(), recv.begin(), recv.end());
@@ -181,7 +211,7 @@ vector<double> Image::featuresMpi(){
             for(int n=0; n<22-j; ++n){
                 //position fixed with (4*m, 4*n)
                 Rectangle* r = new Rectangle(4*m, 4*n, 8+4*i+4*m, 8+4*j+4*n);
-                //4 types of carac for every rectangle 
+                //4 types of feature for every rectangle 
                 f.push_back(type1(r));
                 f.push_back(type2(r));
                 f.push_back(type3(r));
@@ -191,13 +221,13 @@ vector<double> Image::featuresMpi(){
         }
     }
 
-    //every machine except root send vector of carac then root receive their vectors. use Send and Recv bloquant.
+    //every machine except root send vector of feature then root receive their vectors. use Send and Recv bloquant.
     if (rank != 0){
         MPI_Send(f, f.size(), MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
     }
     else{
         for(int r=1; r<size; ++r){
-            //root should count the number of carac for every machine
+            //root should count the number of feature for every machine
             int count = 0;
             for(int n=r; n<594; n+=size){
                 //for machine rank, arrange No.n work
@@ -205,13 +235,12 @@ vector<double> Image::featuresMpi(){
                 int j = n % 22;
                 count += 4 * (27-i) * (22-j);
             }
-            //root receive vector of carac of every machine
+            //root receive vector of feature of every machine
             vector<double> recv;
             MPI_Recv(recv, count, MPI_DOUBLE, r, 442, MPI_COMM_WORLD, &status);
             f.insert(f.end(), recv.begin(), recv.end());
         }
+        this->features_ = f;
     }
-    
-    return f;
-    //there are 95634 rectangles, thus 4*95634=382536 caracs for one image
+    //there are 95634 rectangles, thus 4*95634=382536 features for one image
 }

@@ -1,39 +1,22 @@
-CXX = mpic++ 
-FLAGS = -g
+MAIN = main
 
-BASE = image.o rectangle.o
-TESTVECTOR = $(BASE) testVectorProduct.o
-DECRYPT = $(BASE) decrypt.o
+HFILES=$(wildcard *.h)
 
-# catch-all rule to compile object files
-#   $@ refers to the rule name (.o) and %< to the first item in rule (.cpp)
-%.o:    %.cpp %.h Makefile
-	$(CXX) $(FLAGS) -c -o $@ $<
+OBJECTS = image.o instances.o classifier.o boosting.o
 
-strategy0 : $(TESTVECTOR) strategy0.o
-	$(CXX) $(FLAGS) $^ -o $@
 
-strategy1 : $(TESTVECTOR) strategy1.o
-	$(CXX) $(FLAGS) $^ -o $@
+CXX = mpic++ -O3
 
-strategy2 : $(TESTVECTOR) strategy2.o
-	$(CXX) $(FLAGS) $^ -o $@
+all : $(MAIN)
 
-strategy3 : $(TESTVECTOR) strategy3.o
-	$(CXX) $(FLAGS) $^ -o $@
+$(MAIN) : $(OBJECTS) $(MAIN).o
+	$(CXX) $(INCLUDES) -o $@ $^ $(LIBS)
 
-decrypt0 : $(DECRYPT) strategy0.o
-	$(CXX) $(FLAGS) $^ -o $@
+%o: %.cpp
+	$(CXX) -c $< -o $@
 
-decrypt1 : $(DECRYPT) strategy1.o
-	$(CXX) $(FLAGS) $^ -o $@
+.PHONY: clean
 
-decrypt2 : $(DECRYPT) strategy2.o
-	$(CXX) $(FLAGS) $^ -o $@
-
-decrypt3 : $(DECRYPT) strategy3.o
-	$(CXX) $(FLAGS) $^ -o $@
-
-tmp : $(BASE) tmp.o
-	$(CXX) $(FLAGS) $^ -o $@
-
+clean :
+	rm -f $(MAIN)
+	rm -f *.o *.out

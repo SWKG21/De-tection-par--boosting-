@@ -20,6 +20,7 @@ class Image{
         int getFeature_dimension() const { return feature_dimension_; }
         int getLabel() const {return label_;}
         void setLabel(int label) {label_= label;}
+        vector<double> getFeatures() const { return features_; }
 
         double valueOf(int x, int y);
         double sumOf(int x, int y);
@@ -31,11 +32,14 @@ class Image{
         double type3(Rectangle* r);
         double type4(Rectangle* r);
 
-        vector<double> featuresMpi();
+        void setFeaturesMpi();
 
     private:
         string name_;
         vector<vector<double> > imageData_;
+        vector<vector<double> > sumColumn_;
+        vector<vector<double> > integral_;
+        vector<double> features_;
         int width_;
         int height_;
         int feature_dimension_;

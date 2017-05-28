@@ -1,4 +1,5 @@
 #include "CImg.h"
+//#include "mpi.h" //with mpi.h errors, without, no problem
 #include <iostream>
 #include <vector>
 
@@ -30,8 +31,6 @@ vector<vector<double> > readUnImage(string filename){
 
     return imageData;
 }
-
-double valueOfPixel(int x, int y, )
 
 int main() {
   

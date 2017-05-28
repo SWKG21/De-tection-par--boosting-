@@ -1,22 +1,62 @@
 #include "instances.h"
 #include "image.h"
 #include "classifier.h"
+#include <mpi.h>
 #include <vector>
 #include <cstdlib>
-#include <mpi.h>
+#include <math.h>
+#include <iostream>
 using namespace std;
 
 Classifier::Classifier(Instances* train_instances){
     train_instances_ = train_instances;
     feature_dimension_ = train_instances->getFeature_dimension();
     for(int i=0; i<feature_dimension_; ++i){
-        omega1.push_back(1.0);
-        omega2.push_back(0.0);
+        omega1_.push_back(1.0);
+        omega2_.push_back(0.0);
     }
     
 }
 
-void Classifier::WeakClassifierMpi(double e, int K){ //e, K are global?????
+
+//use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+void Classifier::setFeaturesMpi(){
+    Instances* train_ins = this->train_instances_;
+    int n = train_ins->getNum_instances();
+    vector<Image*> ins = train_ins->getInstances();
+    for(int i=0; i<n; ++i){
+        ins[i]->setFeaturesMpi();
+    }
+}
+
+
+void Classifier::OneWeakClassifier(int i, double error){
+    //set the step first
+    double step = 0.000001;
+    vector<Image*> ins = train_instances_->getInstances();
+    int k = 1;
+    while(true){
+        int m = (int)((rand()/(double)RAND_MAX) * ins.size());
+        Image* img = ins[m];
+        int c = img->getLabel();
+        double X = img->getFeatures()[i];
+        int h = omega1_[i] * X + omega2_[i] >= 0 ? 1 : -1;
+        omega1_[i] = omega1_[i] - step * (h - c) * X;
+        omega2_[i] = omega2_[i] - step * (h - c);
+        k++;
+        if (fabs(step * (h - c)) < error){
+            cout << "Error for omega1_[" << i << "] : " << step * (h - c) * X << endl;
+            cout << "Error for omega2_[" << i << "] : " << step * (h - c) << endl;
+            cout << "K = " << k << endl;
+            cout << "step = " << step << endl;
+            break;
+        }
+    }
+}
+
+
+//use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+void Classifier::AllWeakClassifierMpi(double error){
     //parallel
     int size, rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -26,23 +66,12 @@ void Classifier::WeakClassifierMpi(double e, int K){ //e, K are global?????
     //382536 caracs for one image. we use rank to distribute the work
     int d = this->getFeature_dimension();
     for(int i=rank; i<d; i+=size){
-        //h(i), rank decides i
-        vector<Image*> ins = train_instances_->getInstances();
-        for(int k=1; k<=K; ++k){
-            int m = (int)((rand()/(double)RAND_MAX) * ins.size());
-            Image* img = ins[m];
-            int c = img->getLabel();
-            //TODO, use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            double X = img->featuresMpi()[i];
-            int h = omega1[i] * X + omega2[i] >= 0 ? 1 : -1;
-            omega1[i] = omega1[i] - e * (h - c) * X;
-            omega2[i] = omega2[i] - e * (h - c); 
-        }
+        OneWeakClassifier(i, error);
     }
     
     if(rank != 0){
-        MPI_Send(&omega1, d, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
-        MPI_Send(&omega2, d, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
+        MPI_Send(&omega1_, d, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
+        MPI_Send(&omega2_, d, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
     }
     else{
         for(int i=1; i<size; ++i){
@@ -51,41 +80,17 @@ void Classifier::WeakClassifierMpi(double e, int K){ //e, K are global?????
             MPI_Recv(&recv1, d, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
             MPI_Recv(&recv2, d, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
             Merge(i, size, recv1, recv2);
-        }
-        
+        }   
     }
-
-    //srand(rank);!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 }
 
 
 void Classifier::Merge(int rank, int size, vector<double> v1, vector<double> v2){
-    if ( v1.size() != omega1.size() || v2.size() != omega2.size()) cerr << "Merge Error !" << endl;
+    if ( v1.size() != omega1_.size() || v2.size() != omega2_.size()) cerr << "Merge Error !" << endl;
     else{
         for(int i=rank; i<this->getFeature_dimension(); i+=size){
-            omega1[i] = v1[i];
-            omega2[i] = v2[i];
+            omega1_[i] = v1[i];
+            omega2_[i] = v2[i];
         }
     }
 }
-
-
-// int Classifier::PredictLabel(Image* image_to_classify){
-//     int count_pos = 0;
-//     int count_neg = 0;
-//     vector<double> features = image_to_classify->featuresMpi();
-//     for(int i=0; i<this->getFeature_dimension(); ++i){
-//         if (omega1[i] * features[i] + omega2[i] >= 0){
-//             count_pos++;
-//         }
-//         else{
-//             count_neg++;
-//         }
-//     }
-//     return count_pos > count_neg ? 1 : -1;
-// }
-
-
-// int Classifier::Error(Image* image_to_classify){
-//     return this->PredictLabel(image_to_classify) == image_to_classify->getLabel() ? 0 : 1;
-// }
