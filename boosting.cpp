@@ -95,7 +95,7 @@ void Boosting::Boost(int N){
         vector<double> min = this->minClassifierMpi();
         double alpha = 0.5 * log( (1.0-min[0]) / min[0] );
         omega1Boosted_[(int)min[1]] = alpha * this->getClassifier()->getOmega1()[(int)min[1]];
-        omega2Boosted_[(int)min[1]] = alpha * this->getClassifier()->getOmega2()(int)min[1]];
+        omega2Boosted_[(int)min[1]] = alpha * this->getClassifier()->getOmega2()[(int)min[1]];
 
         //update lambda_
         double s = 0.0;

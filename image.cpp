@@ -1,5 +1,5 @@
 #include "image.h"
-#include "CImg.h"
+#include <CImg.h>
 #include <mpi.h>
 #include <iostream>
 #include <vector>
@@ -8,29 +8,38 @@ using namespace std;
 using namespace cimg_library;
 
 
-Image::Image(string filename){
-    const char* file = filename.c_str();
-    CImg<unsigned char> image(file); // seulement pour jpg ici, non raw
-    name_ = filename;
-    width_ = image.width();
-    height_ = image.height();
+Image::Image(string name){
+    name_ = name;
+    const char* filename = name.c_str();
+
+    // //CImg doesn't work with mpi. So transform all jpg to txt and read txt instead.
+    // CImg<unsigned char> image(file); // seulement pour jpg ici, non raw
+    // CImg<unsigned char>::iterator it = image.begin();
     
-    //initialise the data of pixels of this image
+    //initialise the data of pixels of this image(read width, height and data)
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cout << "Error: could not open matrix file '" << filename << "'" << endl;std::exit(1);
+    }
+    file >> width_;
+    file >> height_;
+
     int cpt = 0;
     vector<vector<double> > tmp;
-    CImg<unsigned char>::iterator it = image.begin();
     vector<double> line;
-    while(it != image.end()) {
-        line.push_back(*it / 255.0);
+    while(cpt<width_*height_) {
+        double data = 0.0;
+        file >> data;
+        line.push_back(data);
         cpt++;
-        ++it;
         if (cpt % width_ == 0){
             tmp.push_back(line);
             line.clear();
         }
     }
     imageData_ = tmp;
-
+    file.close();
+    
     //initialise the vector of integral and sumColomn. This memorisation is for making the complexity of calculing the integral lower
     vector<double> line2(width_);
     for(int i=0; i<height_; ++i){
@@ -40,8 +49,8 @@ Image::Image(string filename){
     
     //initialise the vector of features and feature's dimension
     int count = 0;
-    int n1 = (image.width()-8)/4+1;
-    int n2 = (image.height()-8)/4+1;
+    int n1 = (width_-8)/4+1;
+    int n2 = (height_-8)/4+1;
     for(int i=0; i<n1; ++i){
         int s = 0;
         for(int j=0; j<n2; ++j){
