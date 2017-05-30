@@ -19,15 +19,15 @@ Classifier::Classifier(Instances* train_instances){
 }
 
 
-//use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-void Classifier::setFeaturesMpi(){
-    Instances* train_ins = this->train_instances_;
-    int n = train_ins->getNum_instances();
-    vector<Image*> ins = train_ins->getInstances();
-    for(int i=0; i<n; ++i){
-        ins[i]->setFeaturesMpi();
-    }
-}
+// //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// void Classifier::setFeaturesMpi(){
+//     Instances* train_ins = this->train_instances_;
+//     int n = train_ins->getNum_instances();
+//     vector<Image*> ins = train_ins->getInstances();
+//     for(int i=0; i<n; ++i){
+//         ins[i]->setFeaturesMpi();
+//     }
+// }
 
 
 void Classifier::OneWeakClassifier(int i, double error){

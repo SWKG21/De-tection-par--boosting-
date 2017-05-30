@@ -12,7 +12,7 @@ class Classifier {
         Classifier(Instances* train_instances);
         ~Classifier() {};
 
-        void setFeaturesMpi();
+        //void setFeaturesMpi();
         int getFeature_dimension() const { return feature_dimension_; }
         void OneWeakClassifier(int i, double error);
         void AllWeakClassifierMpi(double error);

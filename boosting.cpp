@@ -19,15 +19,15 @@ Boosting::Boosting(Instances* valid_instances, Classifier* classifier){
 }
 
 
-//use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-void Boosting::setFeaturesMpi(){
-    Instances* valid_ins = this->valid_instances_;
-    int n = valid_ins->getNum_instances();
-    vector<Image*> ins = valid_ins->getInstances();
-    for(int i=0; i<n; ++i){
-        ins[i]->setFeaturesMpi();
-    }
-}
+// //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// void Boosting::setFeaturesMpi(){
+//     Instances* valid_ins = this->valid_instances_;
+//     int n = valid_ins->getNum_instances();
+//     vector<Image*> ins = valid_ins->getInstances();
+//     for(int i=0; i<n; ++i){
+//         ins[i]->setFeaturesMpi();
+//     }
+// }
 
 
 int Boosting::PredictLabel(int i, Image* image_to_validate){// ith classifier for ith feature

@@ -14,7 +14,7 @@ class Image{
         ~Image() {};
 
         string getName() const {return name_;}
-        vector<vector<double> > getData() const {return imageData_;}
+        //vector<vector<double> > getData() const {return imageData_;}
         int getWidth() const {return width_;}
         int getHeight() const {return height_;}
         int getFeature_dimension() const { return feature_dimension_; }
@@ -22,23 +22,22 @@ class Image{
         void setLabel(int label) {label_= label;}
         vector<double> getFeatures() const { return features_; }
 
-        double valueOf(int x, int y);
-        double sumOf(int x, int y);
-        double integralOf(int x, int y);
-        double integral();
+        double valueOf(double** imageData_, int x, int y);
+        double sumOf(double** sumColumn_, double** imageData_, int x, int y);
+        double integralOf(double** integral_, double** sumColumn_, double** imageData_, int x, int y);
+        void integralAll(double** integral_, double** sumColumn_, double** imageData_);
+        double getIntegral(double** integral_, int x, int y);
 
-        double type1(Rectangle* r);
-        double type2(Rectangle* r);
-        double type3(Rectangle* r);
-        double type4(Rectangle* r);
+        double type1(double** integral_, Rectangle* r);
+        double type2(double** integral_, Rectangle* r);
+        double type3(double** integral_, Rectangle* r);
+        double type4(double** integral_, Rectangle* r);
 
-        void setFeaturesMpi();
+        void setFeaturesMpi(double** integral_);
+        void initialize();
 
     private:
         string name_;
-        vector<vector<double> > imageData_;
-        vector<vector<double> > sumColumn_;
-        vector<vector<double> > integral_;
         vector<double> features_;
         int width_;
         int height_;

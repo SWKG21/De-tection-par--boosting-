@@ -12,7 +12,7 @@ class Boosting{
 
         Classifier* getClassifier() const {return classifier_;}
         int getFeature_dimension() const { return feature_dimension_; }
-        void setFeaturesMpi();
+        //void setFeaturesMpi();
         int PredictLabel(int i, Image* image_to_validate);
         int Error(int i, Image* image_to_validate);
         vector<double> minClassifierMpi();

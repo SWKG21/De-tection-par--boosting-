@@ -14,7 +14,7 @@ int main(int argc, char* argv[]){
 
     //void Boosting::setFeaturesMpi() //3rd time mpi
 
-    //double Boosting::Boost(double theta, int N);//4th time mpi
+    //double Boosting::Boost(int N);//4th time mpi
 
     //Image* image_to_classify->setFeaturesMpi() //5th time mpi
 

@@ -10,10 +10,10 @@ Instances::Instances(const char* path) { //path until the directory which contai
     struct dirent *ptr;      
     DIR *dir;  
     string PATH = path;
-    string PATHpos = PATH+"/pos";
-    string PATHneg = PATH+"/neg";
-    vector<string> posfiles;
-    vector<string> negfiles;
+    string PATHpos = PATH+"/pos/";
+    string PATHneg = PATH+"/neg/";
+    //vector<string> posfiles;
+    //vector<string> negfiles;
     vector<Image*> instances;
     int num_instances;
     int num_pos;
@@ -27,18 +27,14 @@ Instances::Instances(const char* path) { //path until the directory which contai
         if(ptr->d_name[0] == '.')  
             continue;
         //cout << ptr->d_name << endl; 
-        posfiles.push_back(ptr->d_name);
-    }  
-      
-    for (int i = 0; i < posfiles.size(); ++i){
-        //input images to instances
-        Image* img = new Image(posfiles[i]);
+        //posfiles.push_back(ptr->d_name);
+        Image* img = new Image(PATHpos+ptr->d_name);
         img->setLabel(1);
         instances.push_back(img);
         num_instances++;
         num_pos++;
-        cout << posfiles[i] << endl;  
-    }
+        cout << PATHpos+ptr->d_name << endl;
+    }  
 
     //read all files in app/neg
     dir=opendir(PATHneg.c_str());     
@@ -48,18 +44,16 @@ Instances::Instances(const char* path) { //path until the directory which contai
         if(ptr->d_name[0] == '.')  
             continue;
         //cout << ptr->d_name << endl;  
-        negfiles.push_back(ptr->d_name);  
-    }  
-      
-    for (int i = 0; i < negfiles.size(); ++i){
-        //input images to instances
-        Image* img = new Image(negfiles[i]);
+        //negfiles.push_back(ptr->d_name);
+        Image* img = new Image(PATHneg+ptr->d_name);
         img->setLabel(-1);
         instances.push_back(img);
         num_instances++;
         num_neg++;
-        cout << negfiles[i] << endl;  
+        cout << PATHneg+ptr->d_name << endl;
     }
+
+    cout << "instances creation finished" << endl;
 
     closedir(dir);
 
@@ -79,7 +73,7 @@ Instances::~Instances() {
 }
 
 
-void Instances::print_information() const {
+void Instances::print_information(){
     cout <<"Number of instances: "
         <<this->getNum_instances()
         <<" ("

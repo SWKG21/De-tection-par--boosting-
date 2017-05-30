@@ -1,19 +1,19 @@
 #include "image.h"
+#include "instances.h"
+#include "classifier.h"
+#include "boosting.h"
+#include <mpi.h>
 #include <iostream>
-#include <vector> 
-#include <string>  
+#include <vector>  
 #include <dirent.h>
-#include <opencv2/core/core.hpp>
-
-#include <fstream>   
-//#include <windows.h>  
-////#include <gdiplus.h>  
-#pragma comment(lib, "gdiplus.lib") 
+#include <fstream>
+#include <stdlib.h>
+#include <string>
+#include <sstream>
 
 using namespace std;
-//using namespace Gdiplus; 
 
-int main(int argc, char* argv[]){
+int main(int argc, char** argv){
     // vector<vector<int> > tmp;
     // int size = 12*15;
     // vector<int> line;
@@ -82,113 +82,111 @@ int main(int argc, char* argv[]){
     // MPI_Finalize();
 
 
-    //test get all files of a fixed format in a directory
-    struct dirent *ptr;      
-    DIR *dir;  
-    string PATH = "/home/wangs/workspace/INF442 WangSUN/Projet/app";
-    string PATHpos = PATH+"/pos";
-    string PATHneg = PATH+"/neg";
-    vector<string> posfiles;
-    vector<string> negfiles;
+    // //test get all files of a fixed format in a directory
+    // struct dirent *ptr;      
+    // DIR *dir;  
+    // string PATH = "/home/wangs/workspace/INF442 WangSUN/Projet/app";
+    // string PATHpos = PATH+"/pos";
+    // string PATHneg = PATH+"/neg";
+    // vector<string> posfiles;
+    // vector<string> negfiles;
     
-    //read all files in app/pos
-    dir=opendir(PATHpos.c_str());   
-    cout << "File list: pos/"<< endl;  
-    while((ptr=readdir(dir))!=NULL)  
-    {   
-        //do not consider '.' and '..' the two directories  
-        if(ptr->d_name[0] == '.')  
-            continue;
-        //cout << ptr->d_name << endl;  
-        posfiles.push_back(ptr->d_name);  
-    }  
+    // //read all files in app/pos
+    // dir=opendir(PATHpos.c_str());   
+    // cout << "File list: pos/"<< endl;  
+    // while((ptr=readdir(dir))!=NULL)  
+    // {   
+    //     //do not consider '.' and '..' the two directories  
+    //     if(ptr->d_name[0] == '.')  
+    //         continue;
+    //     //cout << ptr->d_name << endl;  
+    //     posfiles.push_back(ptr->d_name);  
+    // }  
       
-    for (int i = 0; i < posfiles.size(); ++i)  
-    {  
-        cout << posfiles[i] << " ";  
-    }
-    cout << endl;
+    // for (int i = 0; i < posfiles.size(); ++i)  
+    // {  
+    //     cout << posfiles[i] << " ";  
+    // }
+    // cout << endl;
 
-    //read all files in app/neg
-    dir=opendir(PATHneg.c_str());     
-    cout << "File list: neg/"<< endl;  
-    while((ptr=readdir(dir))!=NULL)  
-    {   
-        //do not consider '.' and '..' the two directories  
-        if(ptr->d_name[0] == '.')  
-            continue;
-        //cout << ptr->d_name << endl;  
-        negfiles.push_back(ptr->d_name);  
-    }  
+    // //read all files in app/neg
+    // dir=opendir(PATHneg.c_str());     
+    // cout << "File list: neg/"<< endl;  
+    // while((ptr=readdir(dir))!=NULL)  
+    // {   
+    //     //do not consider '.' and '..' the two directories  
+    //     if(ptr->d_name[0] == '.')  
+    //         continue;
+    //     //cout << ptr->d_name << endl;  
+    //     negfiles.push_back(ptr->d_name);  
+    // }  
       
-    for (int i = 0; i < negfiles.size(); ++i)  
-    {  
-        cout << negfiles[i] << " ";  
-    }
-    cout << endl;
+    // for (int i = 0; i < negfiles.size(); ++i)  
+    // {  
+    //     cout << negfiles[i] << " ";  
+    // }
+    // cout << endl;
 
-    closedir(dir);
+    // closedir(dir);
 
     // vector<double> v(10, 9);
     // for(int i=0; i<10; i++){
     //     cout << v[i] << endl;
     // }
+    
+    MPI_Init(&argc, &argv);
+    int size, rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    srand(rank);
 
-    // GdiplusStartupInput gdiplusstartupinput;  
-    // ULONG_PTR gdiplustoken;  
-    // GdiplusStartup(&gdiplustoken, &gdiplusstartupinput, NULL);  
-    // wstring infilename(L"1.jpg");  
-    // string outfilename("color.txt");  
-    // //读图片  
-    // Bitmap* bmp = new Bitmap(infilename.c_str());  
-    // UINT height = bmp->GetHeight();  
-    // UINT width = bmp->GetWidth();  
-    // cout << "width " << width << ", height " << height << endl;  
-    // Color color;  
-    // ofstream fout(outfilename.c_str());  
-    // fout<<"structure"<<endl;  
-  
-    // for (int y = 0; y < height; y++)
-    //     for (int x = 0; x < width; x++)  {  
-    //         bmp->GetPixel(x, y, &color);  
-    //         fout << x << ";" << y << ";"  
-    //             << (int)color.GetRed() << ";"  
-    //             << (int)color.GetGreen() << ";"  
-    //             << (int)color.GetBlue() << endl;  
-    //     }  
-  
-    //     fout.close();  
-    //     delete bmp;  
-    //     GdiplusShutdown(gdiplustoken);
+    string PATH1 = "app";
+    const char* path1 = PATH1.c_str();
+    //Instances* train_ins = new Instances(path1);
+    //train_ins->print_information();
+    //Classifier* cl = new Classifier(train_ins);
+    vector<Image*> ins;
+    for(int i=0; i<1; ++i){
+        stringstream ss;
+        ss << i;
+        string name = PATH1+"/pos/im"+ss.str()+".txt";
+        Image* img = new Image(name);
+        img->setLabel(1);
+        ins.push_back(img);
+    }
+    for(int i=0; i<2; ++i){
+        stringstream ss;
+        ss << i;
+        string name = PATH1+"/neg/im"+ss.str()+".txt";
+        Image* img = new Image(name);
+        img->setLabel(-1);
+        ins.push_back(img);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    cout << "all images created" << endl;
 
+    for(int i=0; i<ins.size(); ++i){
+        ins[i]->initialize();
+    }
+    Instances* train_inst = new Instances(ins);
+    Classifier* cl = new Classifier(train_inst);
+    
+    MPI_Finalize();
+    
+    //string PATH2 = "dev";
+    //const char* path2 = PATH2.c_str();
+    //Instances* valid_ins = new Instances(path2);
+    //Boosting* boo = new Boosting(valid_ins, cl);
+
+    // string name = "app/pos/im0.txt";
+    // const char* filename = name.c_str();
+    // ifstream file;
+    // file.open(filename, ios::out | ios::in);
+    // if (!file.is_open()) {
+    //     cout << "Error: could not open matrix file '" << filename << "'" << endl;
+    // }
+    // int n = 0;
+    // file >> n;
+    // cout << n;
     return 0;
 }
-
-
-// #include <iostream>
-// #include <opencv2/core/core.hpp>
-// #include <opencv2/highgui/highgui.hpp>
-// using namespace std;
-// //#define key 0xa9
-// int key[8]={0,1,0,0,0,0,1,0};
-// using namespace cv;
-// int main(int argc, char* argv[])
-// {
-//     IplImage *img = cvLoadImage("00.jpg",1);
-// 	//cvSaveImage("test111.jpg",img);
-//     CvScalar s;
-// 	cvNamedWindow("Image",1);
-// 	cvShowImage("Image",img);
-// 	int flag=1;
-//     for(int ii = 0;ii < img->height;ii++)
-// 	{
-//         for(int jj = 0;jj < img->width;jj++)
-// 		{
-// 		   s = cvGet2D(img,ii,jj); // get the (i,j) pixel value
-// 		   int col[3][8];
-// 		   memset(col,0,sizeof(col));
-// 		   for(int i=0;i<3;i++)
-// 		   {
-// 			   int num=0;
-// 			   if(flag)
-// 				   cout<<"像素值：  "<<(int)s.val[i]<<endl;

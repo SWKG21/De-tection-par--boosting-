@@ -9,6 +9,7 @@ class Instances {
 
     public:
         Instances(const char* path);
+        Instances(vector<Image*> instances):instances_(instances){};
         ~Instances();
 
         int getNum_instances() const { return num_instances_; }
@@ -19,7 +20,7 @@ class Instances {
         vector<Image*> getInstances() const { return instances_; }
         Image* getInstance(int index) const { return instances_[index]; }
 
-        void print_information() const;
+        void print_information();
 
     private:
         vector<Image*> instances_;
