@@ -10,7 +10,7 @@ using namespace std;
 class Image{
 
     public:
-        Image(string filename);
+        Image(string name): name_(name){};
         ~Image() {};
 
         string getName() const {return name_;}
@@ -22,7 +22,6 @@ class Image{
         void setLabel(int label) {label_= label;}
         vector<double> getFeatures() const { return features_; }
 
-        double valueOf(double** imageData_, int x, int y);
         double sumOf(double** sumColumn_, double** imageData_, int x, int y);
         double integralOf(double** integral_, double** sumColumn_, double** imageData_, int x, int y);
         void integralAll(double** integral_, double** sumColumn_, double** imageData_);

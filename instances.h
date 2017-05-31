@@ -15,7 +15,7 @@ class Instances {
         int getNum_instances() const { return num_instances_; }
         int getNum_pos() const { return num_pos_; }
         int getNum_neg() const { return num_neg_; }
-        int getFeature_dimension() const { return feature_dimension_; }
+        int getFeature_dimension() const { return instances_[0]->getFeature_dimension(); }
 
         vector<Image*> getInstances() const { return instances_; }
         Image* getInstance(int index) const { return instances_[index]; }
@@ -26,7 +26,6 @@ class Instances {
         vector<Image*> instances_;
         const char* input_file_;
 
-        int feature_dimension_;
         int num_instances_;
         int num_pos_;
         int num_neg_;

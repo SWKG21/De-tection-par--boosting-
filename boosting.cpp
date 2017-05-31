@@ -5,12 +5,12 @@
 using namespace std;
 
 
-Boosting::Boosting(Instances* valid_instances, Classifier* classifier){
+Boosting::Boosting(vector<Image*> valid_instances, Classifier* classifier){
     valid_instances_ = valid_instances;
-    feature_dimension_ = valid_instances->getFeature_dimension();
+    feature_dimension_ = valid_instances[0]->getFeature_dimension();
     classifier_ = classifier;
     //initialise lambda_
-    int n = valid_instances->getNum_instances();
+    int n = valid_instances.size();
     vector<double> v(n, 1/(double)n);
     lambda_ = v;
     //initialise omega1Boosted and omega2Boosted
@@ -41,24 +41,23 @@ int Boosting::Error(int i, Image* image_to_validate){// ith classifier for ith f
 }
 
 
-vector<double> Boosting::minClassifierMpi(){
+double* Boosting::minClassifierMpi(){
     int size, rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Status status;
 
-    vector<double> min; 
-    min.push_back(1000.0);//for min error. MAX of C++???
-    min.push_back(0.0);// for min classifier
-    int n = valid_instances_->getNum_instances();
-    vector<Image*> vimg = valid_instances_->getInstances();
+    double* min = new double[2]; 
+    min[0] = 1000.0;//for min error. MAX of C++???
+    min[1] = 0.0;// for min classifier
+    int n = valid_instances_.size();
     int d = this->getFeature_dimension();
 
     //local calcul
     for(int i=rank; i<d; i+=size){
         double s = 0.0;
         for(int j=0; j<n; ++j){
-            s += lambda_[j] * Error(i, vimg[j]);
+            s += lambda_[j] * Error(i, valid_instances_[j]);
         }
         if (s < min[0]){
             min[0] = s;
@@ -68,31 +67,30 @@ vector<double> Boosting::minClassifierMpi(){
     
     if(rank != 0){
         //non-root
-        MPI_Send(&min, 2, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
+        MPI_Send(min, 2, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
+        delete[] min;
     }
     else{
         //root
         for(int i=1; i<size; ++i){
-            vector<double> recv;
-            MPI_Recv(&recv, 2, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
+            double* recv = new double[2];
+            MPI_Recv(recv, 2, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
             if (recv[0] < min[0]){
                 min[0] = recv[0];
                 min[1] = recv[1];
             }
+            delete[] recv;
         }
         return min;  
     }
-
-    return min;
 }
 
 
 //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void Boosting::Boost(int N){
-    int n = valid_instances_->getNum_instances();
-    vector<Image*> vimg = valid_instances_->getInstances();
+    int n = valid_instances_.size();
     for(int k=0; k<=N; ++k){
-        vector<double> min = this->minClassifierMpi();
+        double* min = this->minClassifierMpi();
         double alpha = 0.5 * log( (1.0-min[0]) / min[0] );
         omega1Boosted_[(int)min[1]] = alpha * this->getClassifier()->getOmega1()[(int)min[1]];
         omega2Boosted_[(int)min[1]] = alpha * this->getClassifier()->getOmega2()[(int)min[1]];
@@ -100,7 +98,7 @@ void Boosting::Boost(int N){
         //update lambda_
         double s = 0.0;
         for(int j=0; j<n; ++j){
-            lambda_[j] = lambda_[j] * exp( - vimg[j]->getLabel() * alpha * this->PredictLabel((int)min[1], vimg[j]));
+            lambda_[j] = lambda_[j] * exp( - valid_instances_[j]->getLabel() * alpha * this->PredictLabel((int)min[1], valid_instances_[j]));
             s += lambda_[j];
         }
         //renormaliser almbda_

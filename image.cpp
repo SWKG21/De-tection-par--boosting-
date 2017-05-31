@@ -6,14 +6,6 @@
 #include <fstream>
 
 using namespace std;
-//using namespace cimg_library;
-
-
-Image::Image(string name){
-    name_ = name;
-    cout << name_ << endl;
-}
-
 
 void Image::initialize(){
     const char* filename = name_.c_str();
@@ -26,7 +18,6 @@ void Image::initialize(){
     file >> width_;
     file >> height_;
 
-    cerr << "width and height finished" << endl;
     double** imageData_;
     double** sumColumn_;
     double** integral_;
@@ -47,35 +38,24 @@ void Image::initialize(){
     }
     file.close();
 
-    cerr << "read data from txt finished" << endl;
-
-    integralAll(integral_, sumColumn_, imageData_);
+    this->integralAll(integral_, sumColumn_, imageData_);
     delete[] imageData_;
     delete[] sumColumn_;
-
-    cerr << "integral calcul finished" << endl;
-
     //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     setFeaturesMpi(integral_);
     feature_dimension_ = features_.size();
-    cout << name_ << "'s features creation finished" << endl;
-
+    //cout << name_ << "'s features creation finished" << endl;
     delete[] integral_;
-}
-
-
-double Image::valueOf(double** imageData_, int x, int y){
-    return imageData_[y][x];
 }
 
 
 double Image::sumOf(double** sumColumn_, double** imageData_, int x, int y){//memorisation
     if(sumColumn_[y][x] == 0.0){
         if (y==0){
-            sumColumn_[y][x] = valueOf(imageData_, x, y);
+            sumColumn_[y][x] = imageData_[y][x];
         }
         else{
-            sumColumn_[y][x] = sumColumn_[y-1][x] + valueOf(imageData_, x, y);
+            sumColumn_[y][x] = sumColumn_[y-1][x] + imageData_[y][x];
         }
         return sumColumn_[y][x];
     }
@@ -102,8 +82,13 @@ double Image::integralOf(double** integral_, double** sumColumn_, double** image
 
 
 void Image::integralAll(double** integral_, double** sumColumn_, double** imageData_){
-    integralOf(integral_, sumColumn_, imageData_, width_-1, height_-1);
+    for(int i=0; i<width_; ++i){
+        for(int j=0; j<height_; ++j){
+            integralOf(integral_, sumColumn_, imageData_, i, j);
+        }
+    }
 }
+
 
 double Image::getIntegral(double** integral_, int x, int y){
     return integral_[y][x];
@@ -209,36 +194,35 @@ void Image::setFeaturesMpi(double** integral_){
     //     }  
     // }
 
-    cerr << "local calcul start" << endl;
     //when #machine less than 27*22=594, we use (i,j) to distribute the work.
     //we have 594 pieces of work. we distribute them to size machines 
     for(int n=rank; n<594; n+=size){
         //for machine rank, arrange No.n work
         int i = n / 22;
         int j = n % 22;
-        //cerr << "rank : " << rank << " size fixed :" << i << ", " << j << endl;
         //size fixed with width = 8+4i, height = 8+4j
         for(int m=0; m<27-i; ++m){
             for(int n=0; n<22-j; ++n){
                 //position fixed with (4*m, 4*n)
                 Rectangle* r = new Rectangle(4*m, 4*n, 8+4*i+4*m-1, 8+4*j+4*n-1);
-                cerr << "rank " << rank << " : (" << 4*m << ", " << 4*n << ", " << 8+4*i+4*m-1 << ", " << 8+4*j+4*n-1 << ")" << " rectangle created" << endl;
                 //4 types of feature for every rectangle 
                 f.push_back(type1(integral_, r));
                 f.push_back(type2(integral_, r));
                 f.push_back(type3(integral_, r));
                 f.push_back(type4(integral_, r));
-                cerr << "rank " << rank << " : (" << i << ", " << j << ", " << m << ", " << n << ") : 4 types features created" << endl;
                 delete r;
             }
         }
-        //cerr << "rank " << rank << " : (" << i << ", " << j << ")" << " finished" << endl;
     }
-    cerr << "rank "<< rank << " : local calcul finished" << endl;
     //every machine except root send vector of feature then root receive their vectors. use Send and Recv bloquant.
     if (rank != 0){
-        MPI_Send(&f, f.size(), MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
-        cerr << rank << "sent" << endl;
+        int sendsize = f.size();
+        double* send = new double[sendsize];
+        for(int i=0; i<sendsize; ++i){
+            send[i] = f[i];
+        }
+        MPI_Send(send, sendsize, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
+        delete[] send;
     }
     else{
         for(int r=1; r<size; ++r){
@@ -251,10 +235,14 @@ void Image::setFeaturesMpi(double** integral_){
                 count += 4 * (27-i) * (22-j);
             }
             //root receive vector of feature of every machine
-            vector<double> recv;
-            MPI_Recv(&recv, count, MPI_DOUBLE, r, 442, MPI_COMM_WORLD, &status);
-            f.insert(f.end(), recv.begin(), recv.end());
-            cerr << "receive from" << r << endl;
+            double* recv = new double[count];
+            MPI_Recv(recv, count, MPI_DOUBLE, r, 442, MPI_COMM_WORLD, &status);
+            vector<double> tmp(count);
+            for(int i=0; i<count; ++i){
+                tmp[i] = recv[i];
+            }
+            f.insert(f.end(), tmp.begin(), tmp.end());
+            delete[] recv;
         }
         this->features_ = f;
     }

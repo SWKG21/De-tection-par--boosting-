@@ -6,18 +6,16 @@
 
 using namespace std;
 
-Instances::Instances(const char* path) { //path until the directory which contains two sub-directories: pos/ and neg/
+Instances::Instances(const char* path) {
     struct dirent *ptr;      
     DIR *dir;  
     string PATH = path;
     string PATHpos = PATH+"/pos/";
     string PATHneg = PATH+"/neg/";
-    //vector<string> posfiles;
-    //vector<string> negfiles;
     vector<Image*> instances;
-    int num_instances;
-    int num_pos;
-    int num_neg;
+    int num_instances = 0;
+    int num_pos = 0;
+    int num_neg = 0;
     
     //read all files in app/pos
     dir=opendir(PATHpos.c_str());   
@@ -26,8 +24,6 @@ Instances::Instances(const char* path) { //path until the directory which contai
         //do not consider '.' and '..' the two directories  
         if(ptr->d_name[0] == '.')  
             continue;
-        //cout << ptr->d_name << endl; 
-        //posfiles.push_back(ptr->d_name);
         Image* img = new Image(PATHpos+ptr->d_name);
         img->setLabel(1);
         instances.push_back(img);
@@ -43,8 +39,6 @@ Instances::Instances(const char* path) { //path until the directory which contai
         //do not consider '.' and '..' the two directories  
         if(ptr->d_name[0] == '.')  
             continue;
-        //cout << ptr->d_name << endl;  
-        //negfiles.push_back(ptr->d_name);
         Image* img = new Image(PATHneg+ptr->d_name);
         img->setLabel(-1);
         instances.push_back(img);
@@ -52,14 +46,10 @@ Instances::Instances(const char* path) { //path until the directory which contai
         num_neg++;
         cout << PATHneg+ptr->d_name << endl;
     }
-
-    cout << "instances creation finished" << endl;
-
     closedir(dir);
 
     instances_ = instances;
     input_file_ = path;
-    feature_dimension_ = instances[0]->getFeature_dimension();
     num_instances_ = num_instances;
     num_pos_ = num_pos;
     num_neg_ = num_neg;
@@ -81,7 +71,4 @@ void Instances::print_information(){
         <<" pos, " 
         <<this->getNum_neg()
         <<" neg)\n";
-    cout <<"Feature dimension: "
-        <<this->getFeature_dimension()
-        <<endl;
 }
