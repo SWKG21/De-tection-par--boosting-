@@ -1,12 +1,13 @@
 # Detection-par-boosting
 
-Etapes de ce projet
-1. calcul de l'image integrale
-  1.1 lire la valeur de chaque pixel: CImg library 
-  1.2 calculer la valuer de l'image integrale recursivement
-2. calcul d'un vecteur de caracteristiques dans des regions rectangulaires de toute taille et de toute dimension
-  4 types de region blanche et region noire
-  commencer par un rectangle 8*8
-  position (4i, 4j)
-  taille (8+4i, 8+4j)
-3. creer un classifieur pour chaque composant du vecteur de caracteristique
+This is a project of course "Big Data Processing / Traitement des Données Massives" at École Polytechnique.
+
+It is realized in C++ by Wang SUN and Nicolas Zhao.
+
+Main steps:
+
+• Train for a weak classifier using the perceptron algorithm.
+
+• Realize a strong classifier using the Adaboost algorithm.
+
+• Improve the performance with MPI (Message Passing Interface).
