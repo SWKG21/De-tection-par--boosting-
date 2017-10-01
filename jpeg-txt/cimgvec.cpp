@@ -4,6 +4,7 @@
 #include <fstream>
 #include <dirent.h>
 #include <string>
+#include <sstream>
 
 using namespace std;
 using namespace cimg_library;
@@ -20,10 +21,12 @@ void transformUnImage(string filename){ //CImg can NOT read images which are not
         outfile << image.width() << endl;
         outfile << image.height() << endl;
         CImg<unsigned char>::iterator it = image.begin();
-        outfile << *it / 255.0;
+        int i = *it;
+        outfile << i;
         ++it;
         while(it != image.end()) {
-            outfile << endl << *it / 255.0;
+            i = *it;
+            outfile << endl << i;
             ++it;
         }
         outfile.close();
@@ -33,7 +36,9 @@ void transformUnImage(string filename){ //CImg can NOT read images which are not
 
 void transformImages(int n){ //path until the directory which contains two sub-directories: pos/ and neg/
     for(int i=0; i<n+1; ++i){
-        string imgname = "im"+to_string(i);
+        stringstream ss;
+        ss << i;
+        string imgname = "im"+ss.str();
         transformUnImage(imgname);
     }
 }

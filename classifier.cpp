@@ -1,4 +1,3 @@
-#include "instances.h"
 #include "image.h"
 #include "classifier.h"
 #include <mpi.h>
@@ -8,34 +7,37 @@
 #include <iostream>
 using namespace std;
 
-Classifier::Classifier(vector<Image*> train_instances){
-    train_instances_ = train_instances;
-    feature_dimension_ = train_instances[0]->getFeature_dimension();
+Classifier::Classifier(vector<vector<double> >& features, vector<int>& labels){
+    features_ = features;
+    labels_ = labels;
+    feature_dimension_ = features_[0].size();
+    omega1_ = new double[feature_dimension_];
+    omega2_ = new double[feature_dimension_];
     for(int i=0; i<feature_dimension_; ++i){
-        omega1_.push_back(1.0);
-        omega2_.push_back(0.0);
+        omega1_[i] = 1.0;
+        omega2_[i] = 0.0;
     }
-    
 }
 
 
 void Classifier::OneWeakClassifier(int i, double error){
     //set the step first
-    double step = 0.1;
+    double step = 0.001;
     int k = 1;
     while(true){
-        int m = (int)((rand()/(double)RAND_MAX) * train_instances_.size());
-        Image* img = train_instances_[m];
-        int c = img->getLabel();
-        double X = img->getFeatures()[i];
+        int m = (int)((rand()/(double)RAND_MAX) * features_.size());
+        int c = labels_[m];
+        double X = features_[m][i];
         int h = (omega1_[i] * X + omega2_[i]) >= 0 ? 1 : -1;
         omega1_[i] = omega1_[i] - step * (double)(h - c) * X;
         omega2_[i] = omega2_[i] - step * (double)(h - c);
-        if (fabs(step * (h - c)) < error){
+        if ( k > 30 && fabs(step * (double)(h - c)) < error){
             cout << "Error for omega1_[" << i << "] : " << step * (double)(h - c) * X << endl;
             cout << "Error for omega2_[" << i << "] : " << step * (double)(h - c) << endl;
             cout << "K = " << k << endl;
-            cout << "step = " << step << endl;
+            cout << "omega1_[" << i << "] : " << omega1_[i] << endl;
+            cout << "omega2_[" << i << "] : " << omega2_[i] << endl;
+            cout << endl;
             break;
         }
         k++;
@@ -52,36 +54,21 @@ void Classifier::AllWeakClassifierMpi(double error){
     MPI_Status status;
 
     //382536 caracs for one image. we use rank to distribute the work
-    int d = this->getFeature_dimension();
-    if (rank == 0) cout << "dimension of feature : " << d << endl;
-    for(int i=rank; i<d; i+=size){
-        cerr << "rank " << rank << " classifier " << i << " start!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+    for(int i=rank; i<feature_dimension_; i+=size){
         OneWeakClassifier(i, error);
-
     }
     
     if(rank != 0){
-        double* tmp1 = new double[d];
-        double* tmp2 = new double[d];
-        for(int i=0; i<d; ++i){
-            tmp1[i] = omega1_[i];
-            tmp2[i] = omega2_[i];
-        }
-        cerr << "rank " << rank << " start send to root!!!!!!!" << endl;
-        MPI_Send(tmp1, d, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
-        MPI_Send(tmp2, d, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
-        cerr << "rank " << rank << " sent to root!!!!!!!" << endl;
-        delete[] tmp1;
-        delete[] tmp2;
+        MPI_Send(omega1_, feature_dimension_, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
+        MPI_Send(omega2_, feature_dimension_, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
     }
     else{
         for(int i=1; i<size; ++i){
-            double* recv1 = new double[d];
-            double* recv2 = new double[d];
-            cerr << "start receive from rank " << i << endl;
-            MPI_Recv(recv1, d, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
-            MPI_Recv(recv2, d, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
-            cerr << "received from rank " << rank << endl; 
+            double* recv1 = new double[feature_dimension_];
+            double* recv2 = new double[feature_dimension_];
+            MPI_Recv(recv1, feature_dimension_, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
+            MPI_Recv(recv2, feature_dimension_, MPI_DOUBLE, i, 442, MPI_COMM_WORLD, &status);
+            cout << "received from rank " << i << endl;
             Merge(i, size, recv1, recv2);
             delete[] recv1;
             delete[] recv2;
@@ -92,11 +79,9 @@ void Classifier::AllWeakClassifierMpi(double error){
 
 
 void Classifier::Merge(int rank, int size, double* v1, double* v2){
-    if ( sizeof(v1) != omega1_.size() || sizeof(v2) != omega2_.size()) cerr << "Merge Error !" << endl;
-    else{
-        for(int i=rank; i<this->getFeature_dimension(); i+=size){
-            omega1_[i] = v1[i];
-            omega2_[i] = v2[i];
-        }
+    cout << "feature dimension in merge " << feature_dimension_ << endl;
+    for(int i=rank; i<feature_dimension_; i+=size){
+        omega1_[i] = v1[i];
+        omega2_[i] = v2[i];
     }
 }

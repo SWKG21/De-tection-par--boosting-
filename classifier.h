@@ -1,28 +1,29 @@
 #ifndef CLASSIFIER_H_
 #define CLASSIFIER_H_
 
-#include "image.h"
 #include <vector>
+using namespace std;
 
 class Classifier {
 
     public:
-        //Classifier(Instances* train_instances, int k): train_instances_(train_instances), feature_dimension_(train_instances->feature_dimension()), k_(k) {};
-        Classifier(vector<Image*> train_instances);
+        Classifier(vector<vector<double> >& features, vector<int>& labels);
         ~Classifier() {};
 
-        //void setFeaturesMpi();
-        int getFeature_dimension() const { return feature_dimension_; }
         void OneWeakClassifier(int i, double error);
         void AllWeakClassifierMpi(double error);
         void Merge(int rank, int size, double* v1, double* v2);
-        vector<double> getOmega1() const {return omega1_;}
-        vector<double> getOmega2() const {return omega2_;}
+        double* getOmega1() {return omega1_;}
+        double* getOmega2() {return omega2_;}
+        void setOmega1(int pos, double value) {omega1_[pos] = value;}
+        void setOmega2(int pos, double value) {omega2_[pos] = value;}
+        int getFeatureDimension() {return feature_dimension_;}
 
     private:
-        vector<Image*> train_instances_;
-        vector<double> omega1_;
-        vector<double> omega2_;
+        vector<vector<double> > features_;
+        vector<int> labels_;
+        double* omega1_;
+        double* omega2_;
         int feature_dimension_;
 };
 

@@ -1,43 +1,36 @@
 #include "boosting.h"
 #include <mpi.h>
 #include <math.h>
+#include <float.h>
 
 using namespace std;
 
 
-Boosting::Boosting(vector<Image*> valid_instances, Classifier* classifier){
-    valid_instances_ = valid_instances;
-    feature_dimension_ = valid_instances[0]->getFeature_dimension();
-    classifier_ = classifier;
+Boosting::Boosting(vector<vector<double> >& valid_features, vector<int>& valid_labels, double* omega1, double* omega2){
+    valid_features_ = valid_features;
+    valid_labels_ = valid_labels;
+    feature_dimension_ = valid_features[0].size();
+    omega1_ = omega1;
+    omega2_ = omega2;
     //initialise lambda_
-    int n = valid_instances.size();
+    int n = valid_features.size();
     vector<double> v(n, 1/(double)n);
     lambda_ = v;
     //initialise omega1Boosted and omega2Boosted
-    vector<double> omega1Boosted(feature_dimension_);
-    vector<double> omega2Boosted(feature_dimension_);
+    omega1Boosted_ = new double[feature_dimension_];
+    omega2Boosted_ = new double[feature_dimension_];
+    sumOfAlpha_ = 0.0;
 }
 
 
-// //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// void Boosting::setFeaturesMpi(){
-//     Instances* valid_ins = this->valid_instances_;
-//     int n = valid_ins->getNum_instances();
-//     vector<Image*> ins = valid_ins->getInstances();
-//     for(int i=0; i<n; ++i){
-//         ins[i]->setFeaturesMpi();
-//     }
-// }
-
-
-int Boosting::PredictLabel(int i, Image* image_to_validate){// ith classifier for ith feature
-    double X = image_to_validate->getFeatures()[i];
-    return classifier_->getOmega1()[i] * X + classifier_->getOmega2()[i] >= 0 ? 1 : -1;
+int Boosting::PredictLabel(int i, vector<double>& feature_to_validate){// ith classifier for ith feature
+    double X = feature_to_validate[i];
+    return omega1_[i] * X + omega2_[i] >= 0 ? 1 : -1;
 }
 
 
-int Boosting::Error(int i, Image* image_to_validate){// ith classifier for ith feature
-    return this->PredictLabel(i, image_to_validate) == image_to_validate->getLabel() ? 0 : 1;
+int Boosting::Error(int i, vector<double>& feature_to_validate, int label_to_validate){// ith classifier for ith feature
+    return PredictLabel(i, feature_to_validate) == label_to_validate ? 0 : 1;
 }
 
 
@@ -47,28 +40,27 @@ double* Boosting::minClassifierMpi(){
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Status status;
 
-    double* min = new double[2]; 
-    min[0] = 1000.0;//for min error. MAX of C++???
+    double* min = new double[2];
+    min[0] = DBL_MAX;//for min error. MAX of C++
     min[1] = 0.0;// for min classifier
-    int n = valid_instances_.size();
-    int d = this->getFeature_dimension();
-
+    int n = valid_features_.size();
+    int d = feature_dimension_;
     //local calcul
     for(int i=rank; i<d; i+=size){
         double s = 0.0;
         for(int j=0; j<n; ++j){
-            s += lambda_[j] * Error(i, valid_instances_[j]);
+            s += lambda_[j] * Error(i, valid_features_[j], valid_labels_[j]);
+            cout << "(i, j) : " << i << ", " << j << endl;
         }
-        if (s < min[0]){
+        if (s != 0 && s < min[0]){               //min[0] can not be 0!!!
             min[0] = s;
-            min[1] = i;
+            min[1] = (double)i;
         }
     }
     
     if(rank != 0){
         //non-root
         MPI_Send(min, 2, MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
-        delete[] min;
     }
     else{
         //root
@@ -80,45 +72,47 @@ double* Boosting::minClassifierMpi(){
                 min[1] = recv[1];
             }
             delete[] recv;
-        }
-        return min;  
+        } 
     }
+    return min;
 }
 
 
 //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void Boosting::Boost(int N){
-    int n = valid_instances_.size();
-    for(int k=0; k<=N; ++k){
-        double* min = this->minClassifierMpi();
-        double alpha = 0.5 * log( (1.0-min[0]) / min[0] );
-        omega1Boosted_[(int)min[1]] = alpha * this->getClassifier()->getOmega1()[(int)min[1]];
-        omega2Boosted_[(int)min[1]] = alpha * this->getClassifier()->getOmega2()[(int)min[1]];
+    int size, rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Status status;
+    int n = valid_features_.size();
+    for(int k=0; k<N; ++k){
+        cout << "k=" << k << endl;
+        double* min = minClassifierMpi();
+        //cout << "min found" << endl;
+        //for non-root, min not true!!!
+        //root give min to all machines
+        MPI_Bcast(min,2,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        cout << "min[0] in rank " << rank << " after broadcast = " << min[0] << endl;
+        double alpha = 0.5 * log( (1.0-min[0]) / (double)min[0] );
+        
+        omega1Boosted_[(int)min[1]] += alpha * omega1_[(int)min[1]];
+        omega2Boosted_[(int)min[1]] += alpha * omega2_[(int)min[1]];
 
         //update lambda_
         double s = 0.0;
         for(int j=0; j<n; ++j){
-            lambda_[j] = lambda_[j] * exp( - valid_instances_[j]->getLabel() * alpha * this->PredictLabel((int)min[1], valid_instances_[j]));
+            lambda_[j] = lambda_[j] * exp( - valid_labels_[j] * alpha *
+                  PredictLabel((int)min[1], valid_features_[j]));
             s += lambda_[j];
         }
-        //renormaliser almbda_
+        //renormaliser lambda_
         for(int j=0; j<n; ++j){
             lambda_[j] = lambda_[j] / s;
         }
 
         sumOfAlpha_ += alpha;
     }
+    cout << endl;
+    cout << "rank " << rank << " boost finished!!!" << endl;
+    cout << endl;
 }
-
-
-int Boosting::ClassifyFinal(double theta, Image* image_to_classify){
-    int d = this->getFeature_dimension();
-    double F = 0.0;
-    for(int i=0; i<d; ++i){
-        if (omega1Boosted_[i] != 0 || omega2Boosted_[i] != 0){
-            F += omega1Boosted_[i] * image_to_classify->getFeatures()[i] + omega2Boosted_[i]; 
-        } 
-    }
-    return F >= theta * sumOfAlpha_ ? 1 : -1;
-}
-

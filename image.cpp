@@ -1,5 +1,4 @@
 #include "image.h"
-//#include <CImg.h>
 #include <mpi.h>
 #include <iostream>
 #include <vector>
@@ -7,7 +6,22 @@
 
 using namespace std;
 
+Image::Image(string name){
+    name_ = name;
+    double** integral;
+    integral = new double * [92];
+    for(int i=0; i<92; ++i){
+        integral[i] = new double[112];
+    }
+    integral_ = integral;
+}
+
+
 void Image::initialize(){
+    int size, rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    
     const char* filename = name_.c_str();
     //initialise the data of pixels of this image(read width, height and data)
     ifstream file;
@@ -18,34 +32,33 @@ void Image::initialize(){
     file >> width_;
     file >> height_;
 
-    double** imageData_;
-    double** sumColumn_;
-    double** integral_;
-    imageData_ = new double * [height_];
-    sumColumn_ = new double * [height_];
-    integral_ = new double * [height_];
+    double** imageData;
+    double** sumColumn;
+    double** integral;
+    imageData = new double * [height_];
+    sumColumn = new double * [height_];
+    integral = new double * [height_];
     for(int i=0; i<height_; ++i){
-        imageData_[i] = new double[width_];
-        sumColumn_[i] = new double[width_];
-        integral_[i] = new double[width_];
+        imageData[i] = new double[width_];
+        sumColumn[i] = new double[width_];
+        integral[i] = new double[width_];
     }
     int count = 0;
     while(count<width_*height_) {
         int i = count/width_;
         int j = count%width_;
-        file >> imageData_[i][j];
+        int data = 0;
+        file >> data;
+        imageData[i][j] = data/255.0;
         count++;
     }
     file.close();
 
-    this->integralAll(integral_, sumColumn_, imageData_);
-    delete[] imageData_;
-    delete[] sumColumn_;
-    //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    setFeaturesMpi(integral_);
-    feature_dimension_ = features_.size();
-    //cout << name_ << "'s features creation finished" << endl;
-    delete[] integral_;
+    this->integralAll(integral, sumColumn, imageData);
+    delete[] imageData;
+    delete[] sumColumn;
+
+    integral_ = integral;
 }
 
 
@@ -128,26 +141,7 @@ double Image::type4(double** integral_, Rectangle* r){
 
 
 //use mpi here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-void Image::setFeaturesMpi(double** integral_){
-    //sequentiel
-    // vector<double> f;
-    // for(int i=0; i<27; ++i){
-    //     for(int j=0; j<22; ++j){
-    //         //size fixed with width = 8+4i, height = 8+4j
-    //         for(int m=0; m<27-i; ++m){
-    //             for(int n=0; n<22-j; ++n){
-    //                 //position fixed with (4*m, 4*n)
-    //                 Rectangle* r = new Rectangle(4*m, 4*n, 8+4*i+4*m, 8+4*j+4*n);
-    //                 f.push_back(type1(r));
-    //                 f.push_back(type2(r));
-    //                 f.push_back(type3(r));
-    //                 f.push_back(type4(r));
-    //                 delete r;
-    //             }
-    //         }
-    //     }
-    // }
-
+vector<double> Image::getFeaturesMpi(){
     //parallel
     int size, rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -155,46 +149,7 @@ void Image::setFeaturesMpi(double** integral_){
     MPI_Status status;
     vector<double> f;
 
-    // //when #machine less than 27, use i to distribute the work.
-    // //local calcul of vector of feature
-    // for(int i=rank; i<27; i+=size;){
-    //     for(int j=0; j<22; ++j){
-    //         //size fixed with width = 8+4i, height = 8+4j
-    //         for(int m=0; m<27-i; ++m){
-    //             for(int n=0; n<22-j; ++n){
-    //                 //position fixed with (4*m, 4*n)
-    //                 Rectangle* r = new Rectangle(4*m, 4*n, 8+4*i+4*m-1, 8+4*j+4*n-1);
-    //                 //4 types of feature for every rectangle 
-    //                 f.push_back(type1(r));
-    //                 f.push_back(type2(r));
-    //                 f.push_back(type3(r));
-    //                 f.push_back(type4(r));
-    //                 delete r;
-    //             }
-    //         }
-    //     }
-    // }
-    // //every machine except root send vector of feature then root receive their vectors. use Send and Recv bloquant.
-    // if (rank != 0){
-    //     MPI_Send(f, f.size(), MPI_DOUBLE, 0, 442, MPI_COMM_WORLD);
-    // }
-    // else{
-    //     for(int r=1; r<size; ++r){
-    //         //root should count the number of feature for every machine
-    //         int count = 0;
-    //         for(int i=r; i<27; i+=size){
-    //             for(int j=0; j<22; ++j){
-    //                 count += 4 * (27-i) * (22-j);
-    //             }
-    //         }
-    //         //root receive vector of feature of every machine
-    //         vector<double> recv;
-    //         MPI_Recv(recv, count, MPI_DOUBLE, r, 442, MPI_COMM_WORLD, &status);
-    //         f.insert(f.end(), recv.begin(), recv.end());
-    //     }  
-    // }
-
-    //when #machine less than 27*22=594, we use (i,j) to distribute the work.
+    //when #machine more than 27 and less than 27*22=594, we use (i,j) to distribute the work.
     //we have 594 pieces of work. we distribute them to size machines 
     for(int n=rank; n<594; n+=size){
         //for machine rank, arrange No.n work
@@ -243,8 +198,8 @@ void Image::setFeaturesMpi(double** integral_){
             }
             f.insert(f.end(), tmp.begin(), tmp.end());
             delete[] recv;
-        }
-        this->features_ = f;
+        }  
     }
+    return f;
     //there are 95634 rectangles, thus 4*95634=382536 features for one image
 }
