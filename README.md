@@ -2,7 +2,7 @@
 
 This is a project of course "Big Data Processing / Traitement des Données Massives" at École Polytechnique.
 
-It is realized in C++ by Wang SUN and Nicolas Zhao.
+It is realized in C++ by Wang SUN.
 
 Main steps:
 
