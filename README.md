@@ -1,6 +1,6 @@
-# Detection-par-boosting
+# Detection par Boosting
 
-This is a project of course "Big Data Processing / Traitement des Données Massives" at École Polytechnique.
+This is a project of course "Big Data Processing" at École Polytechnique.
 
 It is realized in C++ by Wang SUN.
 
@@ -14,12 +14,12 @@ Main steps:
 
 Files:
 
-	• app/ contains some examples for training.
+	• `app/` contains some examples for training.
 
-	• dev/ contains some examples for validation.
+	• `dev/` contains some examples for validation.
 
-	• test/ contains some examples for test.
+	• `test/` contains some examples for test.
 
-	• jpeg-txt/ contains the source codes for the transformation of image.
+	• `jpeg-txt/` contains the source codes for the transformation of image.
 
-	• src/ contains source codes.
+	• `src/` contains source codes.
